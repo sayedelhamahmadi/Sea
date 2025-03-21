@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Generate QR codes for URLs, Text, Email, and WiFi" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      body {
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      header {
+        background-color: #ef9744;
+        color: white;
+        text-align: center;
+        padding: 1rem;
+      }
+
+      main {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 1rem;
+      }
+
+      .form-container, .qr-image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      input, select, button {
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+        border: 2px solid #ccc;
+        border-radius: 5px;
+        outline: none;
+      }
+
+      button {
+        background-color: #4b5563;
+        color: white;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background: #000;
+      }
+
+      #spinner {
+        display: none;
+        text-align: center;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .save-btn {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 0.75rem 1.5rem;
+        background-color: #ef9744;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background 0.3s;
+      }
+
+      .save-btn:hover {
+        background-color: #ef9744;
+      }
+
+      canvas {
+        margin: 1rem 0;
+      }
+    </style>
+    <title>QR Code Generator</title>
+  </head>
+  <body>
+    <header>
+      <h1>QR Code Generator</h1>
+    </header>
+
+    <main>
+      <div class="form-container">
+        <form id="generate-form">
+          <select id="type" onchange="toggleFields()">
+            <option value="url">URL</option>
+            <option value="text">Text</option>
+            <option value="email">Email</option>
+            <option value="wifi">WiFi</option>
+          </select>
+
+          <div id="url-field">
+            <input id="url" type="url" placeholder="Enter a URL" />
+          </div>
+
+          <div id="text-field" class="hidden">
+            <input id="text" type="text" placeholder="Enter text" />
+          </div>
+
+          <div id="email-field" class="hidden">
+            <input id="email" type="email" placeholder="Enter email address" />
+            <input id="subject" type="text" placeholder="Enter subject (optional)" />
+            <input id="body" type="text" placeholder="Enter message (optional)" />
+          </div>
+
+          <div id="wifi-field" class="hidden">
+            <input id="ssid" type="text" placeholder="Enter WiFi name (SSID)" />
+            <input id="password" type="text" placeholder="Enter WiFi password" />
+            <select id="encryption">
+              <option value="WPA">WPA/WPA2</option>
+              <option value="WEP">WEP</option>
+              <option value="nopass">No Encryption</option>
+            </select>
+          </div>
+
+          <select id="size">
+            <option value="100">100x100</option>
+            <option value="200">200x200</option>
+            <option value="300" selected>300x300</option>
+            <option value="400">400x400</option>
+          </select>
+
+          <button type="submit">Generate QR Code</button>
+        </form>
+      </div>
+
+      <div id="spinner">Generating QR Code...</div>
+
+      <div class="qr-image-container" id="qrcode"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById("generate-form");
+      const qr = document.getElementById("qrcode");
+
+      function toggleFields() {
+        const type = document.getElementById("type").value;
+        document.getElementById("url-field").classList.add("hidden");
+        document.getElementById("text-field").classList.add("hidden");
+        document.getElementById("email-field").classList.add("hidden");
+        document.getElementById("wifi-field").classList.add("hidden");
+
+        document.getElementById(`${type}-field`).classList.remove("hidden");
+      }
+
+      const onGenerateSubmit = (e) => {
+        e.preventDefault();
+        clearUI();
+
+        const type = document.getElementById("type").value;
+        const size = document.getElementById("size").value;
+        let data = "";
+
+        if (type === "url") {
+          const url = document.getElementById("url").value;
+          if (!url) return alert("Please enter a URL");
+          data = url;
+
+        } else if (type === "text") {
+          const text = document.getElementById("text").value;
+          if (!text) return alert("Please enter some text");
+          data = text;
+
+        } else if (type === "email") {
+          const email = document.getElementById("email").value;
+          if (!email) return alert("Please enter an email address");
+          const subject = document.getElementById("subject").value;
+          const body = document.getElementById("body").value;
+          data = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        } else if (type === "wifi") {
+          const ssid = document.getElementById("ssid").value;
+          const password = document.getElementById("password").value;
+          const encryption = document.getElementById("encryption").value;
+          if (!ssid) return alert("Please enter a WiFi name (SSID)");
+          data = `WIFI:T:${encryption};S:${ssid};P:${password};;`;
+        }
+
+        generateQRCode(data, size);
+      };
+
+      const generateQRCode = (data, size) => {
+        qr.innerHTML = "";
+        new QRCode(qr, {
+          text: data,
+          width: size,
+          height: size,
+        });
+
+        setTimeout(() => {
+          const canvas = qr.querySelector("canvas");
+          const saveUrl = canvas.toDataURL("image/png");
+          createSaveBtn(saveUrl);
+        }, 300);
+      };
+
+      const createSaveBtn = (saveUrl) => {
+        const link = document.createElement("a");
+        link.className = "save-btn";
+        link.href = saveUrl;
+        link.download = "qrcode.png";
+        link.textContent = "Save QR Code";
+        qr.appendChild(link);
+      };
+
+      const clearUI = () => {
+        qr.innerHTML = "";
+      };
+
+      toggleFields();
+      form.addEventListener("submit", onGenerateSubmit);
+    </script>
+  </body>
+</html>
